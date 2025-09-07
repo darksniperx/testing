@@ -1,26 +1,39 @@
 from flask import Flask, request
-import telegram
+from telegram import Update
+from telegram.ext import Application, CommandHandler, ContextTypes
+
 import os
 
-TOKEN = os.getenv("BOT_TOKEN")
-bot = telegram.Bot(token=TOKEN)
-
+TOKEN = os.getenv("BOT_TOKEN")   # Render env var me set karo
 app = Flask(__name__)
+
+# Telegram Application (async)
+application = Application.builder().token(TOKEN).build()
+
+
+# --- Handlers ---
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Hello! Bot is live ✅")
+
+
+application.add_handler(CommandHandler("start", start))
+
+
+# --- Flask route for webhook ---
+@app.route("/" + TOKEN, methods=["POST"])
+async def webhook():
+    data = request.get_json(force=True)
+    update = Update.de_json(data, application.bot)
+    await application.process_update(update)
+    return "ok"
+
 
 @app.route("/")
 def home():
-    return "Bot is running with Flask on Render!"
+    return "Bot running ✅"
 
-@app.route(f"/{TOKEN}", methods=["POST"])
-def webhook():
-    update = telegram.Update.de_json(request.get_json(force=True), bot)
-    handle_message(update)
-    return "ok"
-
-def handle_message(update):
-    chat_id = update.message.chat.id
-    text = update.message.text
-    bot.sendMessage(chat_id=chat_id, text=f"You said: {text}")
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+    # Flask ko Render pe run karwana h
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
